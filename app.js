@@ -24,6 +24,7 @@ const blacklistRoutes = require("./routes/blacklist");
 const modelRoutes = require("./routes/model");
 const {responseServerError,ResponseSuccess,responseSuccessWithData, responseSuccess} = require("./helpers/ResponseRequest")
 const Joi = require("joi"); //validate
+const fs = require('fs');
 
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -260,13 +261,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
         return cb(new Error(result.error.message));
       }
       cb(null, `./${DATA_FOLDER}/${req.query.datasetId}/${DATA_SUBFOLDER['uploadsFolder']}`);
-      decompress(`./${DATA_FOLDER}/${req.query.datasetId}/${DATA_SUBFOLDER['uploadsFolder']}/${file.originalname}`, `./${DATA_FOLDER}/${req.query.datasetId}/${DATA_SUBFOLDER['uploadsFolder']}`)
-      .then((files) => {
-        console.log(files);
-      })
-      .catch((error) => {
-        console.log(error);
-      });
     },
     filename: function (req, file, cb) {
       cb(null, file.originalname);
@@ -312,6 +306,18 @@ app.use(bodyParser.urlencoded({ extended: true }));
         if(err) {
           return responseServerError({ res, err: "Error uploading file." });
         }
+        const pathTemp = `${DATA_FOLDER}/${datasetId}/${DATA_SUBFOLDER['uploadsFolder']}`;
+        const dir = await fs.promises.opendir(pathTemp);
+        for await (const dirent of dir) {
+          decompress(`${pathTemp}/${dirent.name}`, pathTemp)
+          .then((files) => {
+            fs.unlinkSync(`${pathTemp}/${dirent.name}`);
+          })
+          .catch((error) => {
+            console.log(error);
+          });
+        }
+        
         const { userUpload, dataName } = req.body;
         //end create folder
         const data = {
